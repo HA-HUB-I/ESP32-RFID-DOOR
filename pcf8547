@@ -1,0 +1,9 @@
+lambda: |-
+      it.printf("U:%2.1f", id(speedtestupload).state);
+      it.printf(8, 0, "D:%2.1f", id(speedtestdownload).state);
+      it.printf(0, 1, "Ot:%4.1f", id(tempout).state);
+      it.printf(8, 1, "In:%3.1f", id(tempgabinet).state);
+      it.printf(0, 2, "S:%s", id(spotifysong).state.c_str());
+      it.printf(0, 3, "A:%s", id(spotifyartist).state.c_str());
+      it.strftime(16, 0, "%H%M", id(my_time).now());
+      it.strftime(16, 1, "%d%m", id(my_time).now());
