@@ -1,6 +1,10 @@
 substitutions:
   name: esphome-web-a2dc90
   friendly_name: ESP
+  lcd_width: '16'
+  lcd_height: '2'
+  scroll_speed: 1s
+
 
 
 esphome:
@@ -19,7 +23,12 @@ esphome:
   # Need to override -Wl,-T - the only way is by setting all build_flags
   #platformio_options:
     #build_flags: -DESPHOME_LOG_LEVEL=ESPHOME_LOG_LEVEL_DEBUG -DUSE_STORE_LOG_STR_IN_FLASH -Wl,-Teagle.flash.4m1m.ld -fno-exceptions  
-
+globals:
+  - id: glbl_timeout_length_ticks
+    type: int
+    restore_value: yes
+    # 5 min * 60 seconds = 300
+    initial_value: "2"
 
 
 
@@ -63,6 +72,16 @@ text_sensor:
   - platform: template #rfid posleden skaniran tag
     name: ${friendly_name} last_tag
     id: rfid_tag
+  - platform: homeassistant
+    name: "Custom Text Display L1"
+    id: text_display_l1
+    entity_id: input_text.text_display_l1
+  - platform: homeassistant
+    name: "Custom Text Display L2"
+    id: text_display_l2
+    entity_id: input_text.text_display_l2  
+         
+
 
     #Kontrol na podsvetkata
   - platform: homeassistant    
@@ -100,8 +119,9 @@ time:
 i2c: #for lcd lcd_pcf8574
   sda: 21
   scl: 22
-  scan: false
-
+  frequency: 400kHz
+  scan: False
+  
 display:
   - platform: lcd_pcf8574
     dimensions: 20x4
@@ -118,23 +138,24 @@ display:
       #it.printf(0, 3, "IN: %.1f C", id(bania_temperature).state);
       #it.printf(10, 1,  "%s", id(frontdoor).state ? "ON" : "OFF");
     lambda: |-
-      if (id(frontdoor).state ) {
+      if (id(frontdoor).state) {
         id(lcd_display).backlight();
         fflush(stdout);
-        it.print( 0, 1, "DOOR is opening");
-      } else if (id(door_lock).publish_state(true) {
-        it.print( 0, 1, "WELLCOME"); 
-        it.strftime(0, 0, "%H:%M - %d.%m.%Y", id(my_time).now());
-        it.printf(0, 2, "TEMP: %.1f C", id(weather).state);
-        it.printf(9,3,id(tm22).state.c_str()); 
-        it.printf(0,3,"TM22:<---"); 
-        it.printf(14,2,id(weatherstate).state.c_str());
+        it.print( 8, 1, "DOOR Opening");
+      } else if (id(doorlock).state) { 
+          it.print( 0, 1,  "WELLCOME"); 
+          it.strftime(0, 0, "%H:%M - %d.%m.%Y", id(my_time).now());
+          it.printf(0, 2, "TEMP: %.1f C", id(weather).state);
+          it.printf(9,3,id(tm22).state.c_str()); 
+          it.printf(0,3,"TM22:<---"); 
+          it.printf(14,2,id(weatherstate).state.c_str());
       } else {
-        it.strftime(0, 0, "%H:%M - %d.%m.%Y", id(my_time).now());
-        it.printf(0, 2, "TEMP: %.1f C", id(weather).state);
-        it.printf(9,3,id(tm22).state.c_str()); 
-        it.printf(0,3,"TM22:<---"); 
-        it.printf(14,2,id(weatherstate).state.c_str());
+          it.printf(0, 1,id(text_display_l1).state.c_str());
+          it.strftime(0, 0, "%H:%M - %d.%m.%Y", id(my_time).now());
+          it.printf(0, 2, "TEMP: %.1f C", id(weather).state);
+          it.printf(9,3,id(tm22).state.c_str()); 
+          it.printf(0,3,"TM22:<---"); 
+          it.printf(14,2,id(weatherstate).state.c_str());
       } 
 
 output:
@@ -152,12 +173,24 @@ rc522_spi:
   cs_pin: GPIO15 # SDA on this board I reckon (no idea why -- I suspect they just change a jumper for I2C board)
   #reset_pin: GPIO16 # RST
   on_tag:
-    then:
+    then:        
       - homeassistant.tag_scanned: !lambda 'return x;'
+      - if:
+          condition:
+            or:
+            - binary_sensor.is_on: TAG
+            - binary_sensor.is_on: CARD
+          then: #this is where you would code your actions
+            - logger.log: "Valid NFC tag detected" 
+            - switch.turn_on: doorlock    
+            
+          else:
+            - logger.log: "Invalid NFC tag detected" 
       #izprashta tekstov sensor s posledno skaniran tag           
       - text_sensor.template.publish:
           id: rfid_tag
           state: !lambda 'return x;'
+        
       #pri skanirane usilva podsvetkata na 100% za 10sec, sled tova q vuzstanovqva          
       - output.turn_on: backlight
       - output.set_level:
@@ -168,22 +201,45 @@ rc522_spi:
             id: backlight
             level: !lambda |-
               return atoi(id(display_backlight).state.c_str()) / 100.0;
-      - light.toggle: greenled
 
 #Relay Push
 switch:
   - platform: gpio
-    pin: GPIO17 # GPIO16 pin
+    pin: GPIO17
     restore_mode: ALWAYS_OFF
     inverted: true
-    id: door_lock
-    name: "Door lock"
+    id: doorlock
+    name: "Door lock Push"
     icon: "mdi:lock-outline"
     on_turn_on:
-    - delay: 200ms
-    - switch.turn_off: door_lock
+    - output.set_level:
+            id: backlight
+            level: 100%               
+    - delay: 
+         seconds: 2
+    - switch.turn_off: doorlock
 
-            
+number:
+  - name: "RFID Timeout"
+    id: timeout_length
+    platform: template
+    entity_category: "config"
+    # TODO: maybe it's a better UX to do this in minutes and do the conversion in esphome
+    unit_of_measurement: seconds
+    mode: box
+    min_value: 2
+    max_value: 50
+    step: 1
+    lambda: |-
+      return (int) id(glbl_timeout_length_ticks);      
+
+    set_action:
+      then:
+        - globals.set:
+            id: glbl_timeout_length_ticks
+            value: !lambda |-
+              // TODO: we're relying on HA to pass an integer; perhaps we should do atoi() and catch any exceptions
+              return (int) x;        
             
       
 binary_sensor:
@@ -210,8 +266,10 @@ binary_sensor:
     entity_id: input_boolean.lcd_display_backlight_on
     internal: true  
 
+
 # Enable logging
 logger:
+ baud_rate: 0
 
 # Enable Home Assistant API
 api:
