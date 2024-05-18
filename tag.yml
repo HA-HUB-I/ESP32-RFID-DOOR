@@ -1,5 +1,5 @@
-
-- platform: rc522
+binary_sensor:
+  - platform: rc522
     uid: 73-F5-C5-0C
     name: "RC522 RFID Tag"
     id: TAG
@@ -7,3 +7,17 @@
     uid: E3-7B-C0-1C
     name: "RC522 RFID CARD"
     id: CARD
+  # Door Magnetic Sensor    
+  - platform: gpio
+    pin:
+      number: 33
+      mode:
+        input: true
+        pullup: true
+    name: "Front Door"
+    id: frontdoor
+    device_class: door
+  - platform: homeassistant    
+    id: backlight_on
+    entity_id: input_boolean.lcd_display_backlight_on
+    internal: true  
