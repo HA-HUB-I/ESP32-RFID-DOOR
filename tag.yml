@@ -1,1 +1,9 @@
 
+- platform: rc522
+    uid: 73-F5-C5-0C
+    name: "RC522 RFID Tag"
+    id: TAG
+  - platform: rc522    
+    uid: E3-7B-C0-1C
+    name: "RC522 RFID CARD"
+    id: CARD
