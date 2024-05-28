@@ -1,0 +1,23 @@
+lambda: |-
+      if (id(current_page_num) == 1) {
+        it.printf(0, 1,id(text_display_l1).state.c_str());
+          it.strftime(0, 0, "%H:%M - %d.%m.%Y", id(my_time).now());
+          it.printf(0, 2, "TEMP: %.1f C", id(weather).state);
+          it.printf(9,3,id(tm22).state.c_str()); 
+          it.printf(0,3,"TM22:<---"); 
+          it.printf(14,2,id(weatherstate).state.c_str());   
+      } if (id(current_page_num) == 2) { 
+          it.printf(0, 1,"WELLCOME");
+          it.printf(0, 0,id(text_display_l1).state.c_str()); 
+          it.printf(0, 2, "TEMP: %.1f  %cC", id(weather).state, 0xDF);
+          it.printf(9,3,id(tm22).state.c_str()); 
+          it.printf(0,3,"TM22:<---"); 
+          it.printf(14,2,id(weatherstate).state.c_str());
+      }  if (id(current_page_num) == 3) {
+          id(lcd_display).backlight();
+          fflush(stdout);
+          it.print( 8, 1, "DOOR Opening");          
+      } 
+      if(id(tm22).state == "unknown"){
+            it.printf(9, 3,""); 
+       }   
